@@ -718,6 +718,29 @@ body {
   color: #9ca3af;
   margin-top: 4px;
 }
+.sheet-state-bar {
+  display: none;
+  gap: 4px;
+  margin: 6px 0 4px;
+}
+.sheet-state-bar button {
+  flex: 1;
+  padding: 6px 4px;
+  font-size: 11px;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 700;
+  color: #4b5563;
+  transition: all 0.12s;
+}
+.sheet-state-bar button.active {
+  background: #2563eb;
+  color: white;
+  border-color: #2563eb;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+}
 .disclaimer-tag {
   background: #fef3c7;
   color: #92400e;
@@ -745,15 +768,20 @@ body {
   background: white;
   border-radius: 10px;
   overflow: auto;
-  padding: 22px 28px 28px;
+  padding: 0;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  position: relative;
 }
 .glossary-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: white;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 18px 24px 12px;
   border-bottom: 2px solid #2563eb;
-  padding-bottom: 8px;
   margin-bottom: 14px;
 }
 .glossary-header h2 {
@@ -762,16 +790,33 @@ body {
   color: #1A365D;
 }
 .glossary-close {
-  background: none;
+  background: #f3f4f6;
   border: none;
-  font-size: 22px;
+  font-size: 18px;
   cursor: pointer;
-  color: #6b7280;
-  padding: 4px 8px;
+  color: #1f2937;
+  padding: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-weight: 700;
+  transition: all 0.15s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
-.glossary-close:hover { color: #1f2937; }
+.glossary-close:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
 
-.glossary-section { margin-bottom: 16px; }
+.glossary-section {
+  padding: 0 24px;
+  margin-bottom: 16px;
+}
+.glossary-section:last-child { padding-bottom: 24px; }
 .glossary-h3 {
   font-size: 13px;
   font-weight: 800;
@@ -866,21 +911,8 @@ body {
   }
   #sidebar.sheet-full .sidebar-header::before { background: #9ca3af; }
 
-  .sidebar-header h1 {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .sidebar-header h1::after {
-    content: '▲';
-    font-size: 10px;
-    color: #9ca3af;
-    transition: transform 0.2s;
-  }
-  #sidebar.sheet-mid .sidebar-header h1::after,
-  #sidebar.sheet-full .sidebar-header h1::after {
-    transform: rotate(180deg);
-  }
+  .sidebar-header h1 { font-size: 12px; }
+  .sheet-state-bar { display: flex; }
 
   /* マップは全画面 */
   #map-container { height: 100vh; width: 100%; }
@@ -997,6 +1029,11 @@ __CSS__
         </select>
       </div>
       <div class="result-count" id="result-count"></div>
+      <div class="sheet-state-bar">
+        <button data-state="peek" type="button">▼ 縮小</button>
+        <button data-state="mid" type="button">▌ 標準</button>
+        <button data-state="full" type="button">▲ 全画面</button>
+      </div>
       <div class="update-tag">最終更新: __UPDATED_AT__ ・<span class="disclaimer-tag">机上一次スクリーニング</span></div>
     </div>
     <div id="results"></div>
@@ -1277,13 +1314,24 @@ const cluster = L.markerClusterGroup({
 });
 const starsLayer = L.featureGroup();
 
+const isMobileNow = () => window.innerWidth <= 768;
+
 ALL_CANDIDATES.forEach(c => {
   const isTop = c.rank && c.rank <= 100;
   const m = L.marker([c.lat, c.lon], {
     icon: makeIcon(c),
     pane: isTop ? 'starsPane' : 'markerPane'
   });
-  m.bindPopup(() => makePopupHTML(c), { maxWidth: 380 });
+  m.bindPopup(() => makePopupHTML(c), {
+    maxWidth: 380,
+    maxHeight: isMobileNow() ? 380 : 600,
+    autoPan: true,
+    autoPanPaddingTopLeft: L.point(10, 60),
+    autoPanPaddingBottomRight: L.point(10, isMobileNow() ? 160 : 30),
+  });
+  m.on('click', () => {
+    if (isMobileNow()) setSheetState('peek');
+  });
   m.candidate = c;
   if (isTop) {
     starsLayer.addLayer(m);
@@ -1446,7 +1494,17 @@ function setSheetState(state) {
   sheet.classList.remove('sheet-peek', 'sheet-mid', 'sheet-full');
   if (state !== 'peek') sheet.classList.add('sheet-' + state);
   sheetState = state;
+  document.querySelectorAll('.sheet-state-bar button').forEach(b => {
+    b.classList.toggle('active', b.dataset.state === state);
+  });
 }
+
+document.querySelectorAll('.sheet-state-bar button').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setSheetState(btn.dataset.state);
+  });
+});
 
 function cycleSheetState() {
   if (sheetState === 'peek') setSheetState('mid');

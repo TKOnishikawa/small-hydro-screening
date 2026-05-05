@@ -822,6 +822,116 @@ body {
   color: #1f2937;
 }
 
+/* ============================================
+ * モバイル対応: Bottom Sheet レイアウト
+ * ============================================ */
+@media (max-width: 768px) {
+  #app { flex-direction: column; }
+
+  #sidebar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    min-width: 0;
+    max-height: 92vh;
+    border-right: none;
+    border-top: 1px solid #d1d5db;
+    border-radius: 18px 18px 0 0;
+    z-index: 1500;
+    transform: translateY(calc(100% - 130px));
+    transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.18);
+    background: white;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  #sidebar.sheet-mid { transform: translateY(50vh); }
+  #sidebar.sheet-full { transform: translateY(8vh); }
+
+  .sidebar-header {
+    cursor: pointer;
+    position: relative;
+    padding-top: 16px;
+    user-select: none;
+  }
+  .sidebar-header::before {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 4px;
+    background: #d1d5db;
+    border-radius: 2px;
+    margin: -10px auto 10px;
+  }
+  #sidebar.sheet-full .sidebar-header::before { background: #9ca3af; }
+
+  .sidebar-header h1 {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .sidebar-header h1::after {
+    content: '▲';
+    font-size: 10px;
+    color: #9ca3af;
+    transition: transform 0.2s;
+  }
+  #sidebar.sheet-mid .sidebar-header h1::after,
+  #sidebar.sheet-full .sidebar-header h1::after {
+    transform: rotate(180deg);
+  }
+
+  /* マップは全画面 */
+  #map-container { height: 100vh; width: 100%; }
+
+  /* desktop左下のボタン群はモバイルでヘッダ最下部に移動 (JSでDOM移動) */
+  .map-bottom-left {
+    position: static !important;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 8px 14px;
+    border-bottom: 1px solid #f3f4f6;
+    background: #f9fafb;
+  }
+  .map-bottom-left button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 7px 8px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  /* 凡例非表示（場所食う） */
+  #map-legend { display: none; }
+
+  /* search-area-btn 縮小 */
+  #search-area-btn {
+    font-size: 12px;
+    padding: 8px 14px;
+    top: 10px;
+  }
+
+  /* リストアイテム余白縮小 */
+  .list-item { padding: 10px 12px; }
+  .list-item.top20 { border-left-width: 4px; padding-left: 8px; }
+  .list-item.top50 { border-left-width: 4px; padding-left: 8px; }
+  .list-item.top100 { border-left-width: 4px; padding-left: 8px; }
+
+  /* glossary/actions モーダルもモバイル最適化 */
+  .glossary-card {
+    width: 100% !important;
+    max-height: 90vh;
+    padding: 16px 18px 22px;
+    border-radius: 12px;
+  }
+  .modal-shell { padding: 8px; }
+
+  /* ポップアップは画面の70%まで */
+  .leaflet-popup-content { max-width: 86vw !important; }
+}
+
 /* Map legend (top-right corner) */
 #map-legend {
   position: absolute;
@@ -1252,6 +1362,9 @@ function makeListItem(c) {
   item.onclick = () => {
     document.querySelectorAll('.list-item.active').forEach(el => el.classList.remove('active'));
     item.classList.add('active');
+    if (window.innerWidth <= 768) {
+      setSheetState('peek');
+    }
     map.flyTo([c.lat, c.lon], 14, { duration: 0.5 });
     setTimeout(() => {
       const m = MARKER_BY_RANK[c.rank];
@@ -1322,6 +1435,81 @@ function applyUrlHash() {
 map.on('moveend', updateUrlHash);
 map.on('zoomend', updateUrlHash);
 applyUrlHash();
+
+// ============================================
+// モバイル: Bottom Sheet 状態管理 + DOM再配置
+// ============================================
+const sheet = document.getElementById('sidebar');
+let sheetState = 'peek';
+
+function setSheetState(state) {
+  sheet.classList.remove('sheet-peek', 'sheet-mid', 'sheet-full');
+  if (state !== 'peek') sheet.classList.add('sheet-' + state);
+  sheetState = state;
+}
+
+function cycleSheetState() {
+  if (sheetState === 'peek') setSheetState('mid');
+  else if (sheetState === 'mid') setSheetState('full');
+  else setSheetState('peek');
+}
+
+// Tap header to cycle
+document.querySelector('.sidebar-header').addEventListener('click', (e) => {
+  if (window.innerWidth > 768) return;
+  if (e.target.closest('button') || e.target.closest('select') || e.target.closest('a')) return;
+  cycleSheetState();
+});
+
+// DOM再配置: モバイルでは map-bottom-left を sidebar-header に移動
+function reflowForViewport() {
+  const buttons = document.querySelector('.map-bottom-left');
+  const sidebarHeader = document.querySelector('.sidebar-header');
+  const mapContainer = document.querySelector('#map-container');
+  if (!buttons || !sidebarHeader || !mapContainer) return;
+
+  if (window.innerWidth <= 768) {
+    if (!sidebarHeader.contains(buttons)) sidebarHeader.appendChild(buttons);
+    if (!sheet.classList.contains('sheet-mid') && !sheet.classList.contains('sheet-full')) {
+      setSheetState('peek');
+    }
+  } else {
+    if (!mapContainer.contains(buttons)) {
+      // map-legend の前に挿入してDOM順を維持
+      const legend = document.getElementById('map-legend');
+      if (legend) mapContainer.insertBefore(buttons, legend);
+      else mapContainer.appendChild(buttons);
+    }
+    sheet.classList.remove('sheet-peek', 'sheet-mid', 'sheet-full');
+  }
+}
+reflowForViewport();
+window.addEventListener('resize', reflowForViewport);
+
+// タッチドラッグでシート操作（簡易版）
+let dragStartY = null, dragStartState = null;
+const header = document.querySelector('.sidebar-header');
+header.addEventListener('touchstart', (e) => {
+  if (window.innerWidth > 768) return;
+  dragStartY = e.touches[0].clientY;
+  dragStartState = sheetState;
+});
+header.addEventListener('touchend', (e) => {
+  if (window.innerWidth > 768 || dragStartY === null) return;
+  const endY = e.changedTouches[0].clientY;
+  const dy = endY - dragStartY;
+  if (Math.abs(dy) < 30) { dragStartY = null; return; }  // tapで処理
+  // 上スワイプ(dy<0): 拡大
+  if (dy < -40) {
+    if (dragStartState === 'peek') setSheetState('mid');
+    else if (dragStartState === 'mid') setSheetState('full');
+  } else if (dy > 40) {
+    if (dragStartState === 'full') setSheetState('mid');
+    else if (dragStartState === 'mid') setSheetState('peek');
+  }
+  dragStartY = null;
+  e.preventDefault();
+});
 
 // 共有URLボタン
 document.getElementById('share-btn').addEventListener('click', () => {

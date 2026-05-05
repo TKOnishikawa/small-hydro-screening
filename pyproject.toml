@@ -1,0 +1,50 @@
+[project]
+name = "small-hydro-screening"
+version = "0.1.0"
+description = "公開データを統合した小水力発電ポテンシャル机上スクリーニング"
+requires-python = ">=3.11"
+dependencies = [
+    "geopandas>=0.14",
+    "shapely>=2.0",
+    "pandas>=2.1",
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.0",
+    "tqdm>=4.66",
+    "click>=8.1",
+    "python-dotenv>=1.0",
+    "folium>=0.15",
+    "branca>=0.7",
+    "osm2geojson>=0.2",
+]
+
+[project.optional-dependencies]
+scrape = [
+    "selenium>=4.15",
+    "webdriver-manager>=4.0",
+]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "ruff>=0.1",
+    "mypy>=1.7",
+    "ipykernel>=6.27",
+]
+
+[project.scripts]
+small-hydro = "small_hydro.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

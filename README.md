@@ -6,7 +6,9 @@
 
 ## 🌐 公開URL
 
-🔗 **[マップを開く](./docs/index.html)**（GitHub Pages 設定後にURLを更新）
+🔗 **[マップを開く（GitHub Pages）](https://tkonishikawa.github.io/small-hydro-screening/)**
+
+> 初回ロードに数十秒かかります（11MB の HTML + 8,246件のマーカーデータ）。
 
 ## 🎯 これは何？
 
